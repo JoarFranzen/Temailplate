@@ -1,0 +1,858 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mailmallar</title>
+<style>
+  :root {
+    --bg:#eef1f8; --surface:#fff; --ink:#1c2434; --muted:#65708a; --line:#dbe1ee;
+    --blue:#3159d6; --blue2:#2548b4; --green:#0c8f5c; --green2:#0a7a4d;
+    --amber:#c9711b; --amber2:#af6015; --danger:#be2b43; --shadow:0 16px 34px rgba(31,48,91,.10);
+    --chip-input-bg:#f7f8fb;
+  }
+  html[data-theme="dark"] {
+    --bg:#12151d; --surface:#1a1e29; --ink:#eef1f8; --muted:#93a0bd; --line:#2c3244;
+    --blue:#4f74e8; --blue2:#3f60cc; --green:#17a56f; --green2:#12905f;
+    --amber:#e0904a; --amber2:#c97a34; --shadow:0 16px 34px rgba(0,0,0,.38);
+    --chip-input-bg:#20242f;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:var(--bg); transition:background .18s ease, color .18s ease; }
+  button,input,textarea,select { font:inherit; }
+  button { cursor:pointer; border:none; background:none; color:inherit; }
+  svg { display:block; }
+
+  .menu-btn { position:fixed; top:18px; left:18px; z-index:45; width:40px; height:40px; border-radius:9px; background:var(--surface); border:1px solid var(--line); box-shadow:0 4px 10px rgba(31,48,91,.08); display:flex; align-items:center; justify-content:center; }
+  .menu-btn:hover { background:var(--bg); }
+  .menu-btn svg path { stroke:var(--ink); }
+
+  .stage { max-width:900px; margin:0 auto; min-height:100vh; padding:88px 20px 60px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; }
+
+  .field-rail { width:100%; display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+  .field-chip { background:var(--surface); border:1.5px solid var(--chip-color, var(--line)); border-radius:10px; padding:8px 12px; box-shadow:0 4px 10px rgba(31,48,91,.07); display:flex; flex-direction:column; gap:5px; min-width:170px; position:relative; }
+  .field-chip label { font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--chip-color, var(--muted)); display:flex; align-items:center; justify-content:space-between; gap:6px; }
+  .field-chip label .kbd-hint { font-size:10px; font-weight:700; color:var(--muted); background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 5px; text-transform:none; letter-spacing:0; }
+  .field-chip label .rm-btn { display:flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:4px; color:var(--chip-color, var(--muted)); opacity:.75; }
+  .field-chip label .rm-btn:hover { background:var(--chip-input-bg); opacity:1; }
+  .field-chip input { border:1px solid var(--line); border-radius:7px; padding:7px 8px; font-size:13px; background:var(--chip-input-bg); color:var(--ink); }
+  .field-chip input:focus { outline:none; border-color:var(--chip-color, #6f8dea); box-shadow:0 0 0 3px var(--chip-color-soft, rgba(49,89,214,.15)); }
+
+  .editor-wrap { width:100%; position:relative; }
+  #editor {
+    width:100%; min-height:460px; max-height:70vh; overflow:auto; background:var(--surface);
+    border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);
+    padding:28px 30px; font-size:15px; line-height:1.65; white-space:pre-wrap; word-wrap:break-word;
+    outline:none; cursor:text; color:var(--ink);
+    -webkit-user-select:text; user-select:text;
+  }
+  #editor:empty::before { content:attr(data-placeholder); color:var(--muted); }
+  #editor mark.ph { border-radius:4px; padding:1px 3px; font-weight:700; background:var(--ph-color-soft); color:var(--ph-color); }
+
+  .toolbar { width:100%; display:flex; align-items:center; gap:10px; margin-top:14px; }
+  .toolbar .spacer { flex:1; }
+  .btn { display:inline-flex; align-items:center; gap:8px; border-radius:10px; padding:12px 18px; font-weight:700; font-size:14px; transition:.15s ease; white-space:nowrap; }
+  .btn-paste { background:var(--surface); color:var(--ink); border:1.5px solid var(--line); }
+  .btn-paste:hover { border-color:#adbbd8; background:var(--bg); }
+  .btn-copy { background:var(--blue); color:#fff; } .btn-copy:hover { background:var(--blue2); }
+  .btn-save { background:var(--green); color:#fff; } .btn-save:hover { background:var(--green2); }
+  .btn-placeholder { background:var(--amber); color:#fff; } .btn-placeholder:hover { background:var(--amber2); }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .btn svg path, .btn svg rect { stroke:currentColor; }
+  .btn-paste svg path, .btn-paste svg rect { stroke:var(--ink); }
+  .btn .kbd-inline { font-size:10.5px; font-weight:700; opacity:.85; background:rgba(255,255,255,.18); border-radius:4px; padding:1px 5px; margin-left:2px; }
+  .btn-paste .kbd-inline { background:var(--bg); color:var(--muted); }
+
+  .hint-bar { width:100%; font-size:12px; color:var(--muted); margin-top:10px; text-align:center; line-height:1.6; }
+
+  .toast { position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(8px); background:var(--ink); color:var(--bg); padding:11px 18px; border-radius:10px; font-size:13.5px; box-shadow:0 10px 26px rgba(0,0,0,.22); opacity:0; pointer-events:none; transition:.2s ease; z-index:50; max-width:min(90vw,420px); text-align:center; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+  .side-panel { position:fixed; top:0; left:0; height:100vh; width:300px; background:var(--surface); border-right:1px solid var(--line); box-shadow:16px 0 34px rgba(31,48,91,.10); padding:20px; transform:translateX(-100%); transition:.22s ease; z-index:50; overflow:auto; display:flex; flex-direction:column; }
+  .side-panel.open { transform:translateX(0); }
+  .side-panel-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .side-panel-head h3 { margin:0; font-size:16px; }
+  .icon-btn { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .icon-btn:hover { background:var(--bg); color:var(--ink); }
+  .icon-btn svg path { stroke:currentColor; }
+  .section-label { font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:16px 0 8px; display:flex; align-items:center; justify-content:space-between; }
+  .section-label span.count { font-weight:600; color:var(--muted); text-transform:none; letter-spacing:0; font-size:11px; }
+  .lib-row { display:flex; align-items:center; gap:10px; padding:10px 10px; border-radius:9px; margin-bottom:4px; cursor:pointer; border:1px solid transparent; }
+  .lib-row:hover { background:var(--bg); }
+  .lib-row .lib-text { flex:1; min-width:0; }
+  .lib-row strong { display:block; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lib-row small { color:var(--muted); font-size:11.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:block; }
+  .lib-empty { color:var(--muted); font-size:13px; padding:10px 4px; }
+  .panel-action { display:flex; align-items:center; gap:9px; width:100%; text-align:left; padding:10px 10px; border-radius:9px; color:var(--ink); font-size:13.5px; font-weight:600; }
+  .panel-action:hover { background:var(--bg); }
+  .panel-action svg path { stroke:var(--ink); }
+  .panel-footer { margin-top:auto; padding-top:14px; border-top:1px solid var(--line); }
+  .backdrop { position:fixed; inset:0; background:rgba(10,14,26,.4); z-index:44; display:none; }
+  .backdrop.open { display:block; }
+
+  .theme-row { display:flex; gap:6px; background:var(--bg); border-radius:9px; padding:4px; margin-top:4px; }
+  .theme-opt { flex:1; text-align:center; padding:8px 6px; border-radius:7px; font-size:12.5px; font-weight:650; color:var(--muted); display:flex; align-items:center; justify-content:center; gap:6px; }
+  .theme-opt.active { background:var(--surface); color:var(--ink); box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  .theme-opt svg path, .theme-opt svg circle { stroke:currentColor; }
+
+  dialog { border:0; padding:0; border-radius:14px; box-shadow:0 20px 60px rgba(16,27,55,.32); max-width:420px; width:calc(100% - 32px); background:var(--surface); color:var(--ink); }
+  dialog::backdrop { background:rgba(10,14,26,.45); }
+  .modal { padding:22px; } .modal h3 { margin:0 0 6px; font-size:16px; } .modal p { color:var(--muted); margin:0 0 14px; font-size:13.5px; line-height:1.5; }
+  .modal input { width:100%; border:1px solid var(--line); border-radius:9px; padding:10px 11px; margin-bottom:6px; background:var(--bg); color:var(--ink); }
+  .modal-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:16px; }
+  @media (max-width:640px) { .field-chip{min-width:140px} .toolbar{flex-wrap:wrap} .btn{flex:1 1 auto} }
+</style>
+</head>
+<body>
+  <button class="menu-btn" id="menuBtn" aria-label="Meny">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+
+  <div class="stage">
+    <div class="field-rail" id="fieldRail"></div>
+
+    <div class="editor-wrap">
+      <div id="editor" contenteditable="true" data-placeholder="Klistra in ditt mail här, eller börja skriva…"></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn btn-paste" id="pasteBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 5h6a1 1 0 011 1v1H8V6a1 1 0 011-1z" stroke-width="1.6"/><rect x="6" y="4" width="12" height="17" rx="2" stroke-width="1.6"/></svg>
+        Klistra in
+      </button>
+      <button class="btn btn-copy" id="copyBtn" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke-width="1.6"/><path d="M5 15V6a2 2 0 012-2h9" stroke-width="1.6"/></svg>
+        Kopiera mail
+        <span class="kbd-inline" id="copyKbdHint"></span>
+      </button>
+      <button class="btn btn-save" id="saveBtn" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 5h11l3 3v11a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z" stroke-width="1.6"/><path d="M8 5v5h7V5" stroke-width="1.6"/></svg>
+        Spara som mall
+        <span class="kbd-inline" id="saveKbdHint"></span>
+      </button>
+      <div class="spacer"></div>
+      <button class="btn btn-placeholder" id="makePlaceholderBtn" style="display:none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-width="2" stroke-linecap="round"/></svg>
+        Gör placeholder
+        <span class="kbd-inline">Ctrl+Space</span>
+      </button>
+    </div>
+    <div class="hint-bar" id="hintBar" style="display:none">
+      <strong>Ctrl+Space</strong> gör placeholder · <strong id="jumpHint"></strong> hoppar mellan fält · <strong id="copyHint"></strong> kopierar mailet · <strong id="saveHint"></strong> sparar som mall · <strong id="undoHint"></strong> ångra/gör om · <strong>Esc</strong> tillbaka till mailrutan<br>
+      Klistra in flera Excel-celler i ett fält för att fylla flera fält i följd.
+    </div>
+  </div>
+
+  <div class="backdrop" id="backdrop"></div>
+  <aside class="side-panel" id="sidePanel">
+    <div class="side-panel-head">
+      <h3>Meny</h3>
+      <button class="icon-btn" id="closePanelBtn" aria-label="Stäng">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <button class="panel-action" id="newTemplateBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Nytt mail
+    </button>
+
+    <div class="section-label">Utseende</div>
+    <div class="theme-row" id="themeRow">
+      <button class="theme-opt" data-theme-choice="light">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Ljust
+      </button>
+      <button class="theme-opt" data-theme-choice="dark">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 14.5A8.5 8.5 0 1110.5 4a7 7 0 009.5 10.5z" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        Mörkt
+      </button>
+      <button class="theme-opt" data-theme-choice="system">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="12" rx="1.5" stroke-width="1.8"/><path d="M8 20h8M12 16v4" stroke-width="1.8" stroke-linecap="round"/></svg>
+        System
+      </button>
+    </div>
+
+    <div class="section-label">Temporära mail<span class="count" id="recentsCount"></span></div>
+    <div id="draftList"></div>
+
+    <div class="section-label">Mina mallar</div>
+    <div id="libraryList"></div>
+
+    <div class="panel-footer">
+      <button class="panel-action" id="exportBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3v12M7 10l5 5 5-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 19h14" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Exportera backup
+      </button>
+      <label class="panel-action" style="cursor:pointer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 21V9M7 14l5-5 5 5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 5h14" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Importera backup
+        <input type="file" id="importInput" accept="application/json" hidden />
+      </label>
+    </div>
+  </aside>
+
+  <dialog id="nameDialog">
+    <div class="modal">
+      <h3>Spara mall</h3>
+      <p>Ge mallen ett namn så hittar du den lätt igen i menyn.</p>
+      <input id="templateNameInput" placeholder="Exempel: Påminnelse om möte" />
+      <div class="modal-actions">
+        <button class="btn btn-paste" id="cancelSaveBtn">Avbryt</button>
+        <button class="btn btn-save" id="confirmSaveBtn">Spara</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="fieldNameDialog">
+    <div class="modal">
+      <h3>Namnge fältet</h3>
+      <p>Detta blir rubriken ovanför mailet, t.ex. NAMN eller DATUM.</p>
+      <input id="fieldNameInput" placeholder="namn" />
+      <div class="modal-actions">
+        <button class="btn btn-paste" id="cancelFieldBtn">Avbryt</button>
+        <button class="btn btn-placeholder" id="confirmFieldBtn">Skapa</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const KEY = 'email-template-studio-v13';
+    const THEME_KEY = 'email-template-studio-theme';
+    const RECENTS_KEY = 'email-template-studio-recents';
+    const MAX_RECENTS = 5;
+
+    const PALETTE = [
+      { color: '#c9711b', soft: 'rgba(201,113,27,.16)' },
+      { color: '#3159d6', soft: 'rgba(49,89,214,.14)' },
+      { color: '#0c8f5c', soft: 'rgba(12,143,92,.15)' },
+      { color: '#7c3aed', soft: 'rgba(124,58,237,.15)' },
+      { color: '#c22a72', soft: 'rgba(194,42,114,.15)' },
+      { color: '#0e8f8f', soft: 'rgba(14,143,143,.15)' },
+      { color: '#c9391b', soft: 'rgba(201,57,27,.15)' },
+      { color: '#4353c9', soft: 'rgba(67,83,201,.15)' },
+      { color: '#7a7d1b', soft: 'rgba(122,125,27,.16)' }
+    ];
+    function colorForIndex(idx) { return PALETTE[idx % PALETTE.length]; }
+
+    const editor = document.getElementById('editor');
+    const fieldRail = document.getElementById('fieldRail');
+    const hintBar = document.getElementById('hintBar');
+    const isMac = navigator.platform.toUpperCase().includes('MAC');
+    const modLabel = isMac ? '⌘' : 'Ctrl';
+    document.getElementById('copyKbdHint').textContent = modLabel + '+Enter';
+    document.getElementById('saveKbdHint').textContent = modLabel + '+Shift+S';
+    document.getElementById('jumpHint').textContent = modLabel + '+1–9';
+    document.getElementById('copyHint').textContent = modLabel + '+Enter';
+    document.getElementById('saveHint').textContent = modLabel + '+Shift+S';
+    document.getElementById('undoHint').textContent = modLabel + '+Z / ' + modLabel + '+Shift+Z';
+
+    let templates = JSON.parse(localStorage.getItem(KEY) || '[]');
+    let currentId = null;
+    let suppressAutoConvert = false;
+    let orderedKeys = [];
+
+    let undoStack = [];
+    let redoStack = [];
+    let restoringHistory = false;
+    let historyDebounce = null;
+
+    function pushHistory() {
+      if (restoringHistory) return;
+      const snapshot = editor.innerHTML;
+      if (undoStack.length && undoStack[undoStack.length - 1] === snapshot) return;
+      undoStack.push(snapshot);
+      if (undoStack.length > 60) undoStack.shift();
+      redoStack = [];
+    }
+    function scheduleHistoryPush() {
+      clearTimeout(historyDebounce);
+      historyDebounce = setTimeout(pushHistory, 250);
+    }
+    function restoreSnapshot(html) {
+      restoringHistory = true;
+      suppressAutoConvert = true;
+      editor.innerHTML = html;
+      suppressAutoConvert = false;
+      restoringHistory = false;
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      forceRenderFieldRail();
+      scheduleAutosave();
+    }
+    function undo() {
+      if (undoStack.length < 2) { toast('Inget mer att ångra'); return; }
+      redoStack.push(undoStack.pop());
+      restoreSnapshot(undoStack[undoStack.length - 1]);
+    }
+    function redo() {
+      if (!redoStack.length) { toast('Inget att göra om'); return; }
+      const html = redoStack.pop();
+      undoStack.push(html);
+      restoreSnapshot(html);
+    }
+
+    let currentRecentId = null;
+
+    function loadRecents() {
+      return JSON.parse(localStorage.getItem(RECENTS_KEY) || '[]');
+    }
+    function saveRecents(list) {
+      localStorage.setItem(RECENTS_KEY, JSON.stringify(list));
+    }
+
+    function commitCurrentToRecent() {
+      const html = editor.innerHTML;
+      const text = editor.textContent.trim();
+      if (!text) return;
+      let recents = loadRecents();
+      if (currentRecentId) {
+        const idx = recents.findIndex(r => r.id === currentRecentId);
+        if (idx >= 0) {
+          recents[idx] = { ...recents[idx], html, preview: text.slice(0, 80), updatedAt: Date.now() };
+          saveRecents(recents);
+          return;
+        }
+      }
+      const newSlot = { id: crypto.randomUUID(), html, preview: text.slice(0, 80), updatedAt: Date.now() };
+      recents = [newSlot, ...recents].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_RECENTS);
+      currentRecentId = newSlot.id;
+      saveRecents(recents);
+    }
+
+    let autosaveTimer = null;
+    function scheduleAutosave() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(commitCurrentToRecent, 800);
+    }
+
+    let savedSelection = null;
+    function getTextOffset(root, targetNode, targetOffset) {
+      let offset = 0;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node === targetNode) return offset + targetOffset;
+        offset += node.nodeValue.length;
+      }
+      return offset;
+    }
+    function captureSelectionAsOffsets() {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+      const range = sel.getRangeAt(0);
+      if (!editor.contains(range.startContainer) || !editor.contains(range.endContainer)) return;
+      const start = getTextOffset(editor, range.startContainer, range.startOffset);
+      const end = getTextOffset(editor, range.endContainer, range.endOffset);
+      const lo = Math.min(start, end), hi = Math.max(start, end);
+      if (hi > lo) savedSelection = { start: lo, end: hi, text: editor.textContent.slice(lo, hi) };
+    }
+    document.addEventListener('selectionchange', captureSelectionAsOffsets);
+    editor.addEventListener('mouseup', captureSelectionAsOffsets);
+    editor.addEventListener('keyup', captureSelectionAsOffsets);
+    editor.addEventListener('touchend', captureSelectionAsOffsets);
+
+    function rangeFromTextOffsets(root, start, end) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      let node, offset = 0;
+      let startNode = null, startOffset = 0, endNode = null, endOffset = 0;
+      while ((node = walker.nextNode())) {
+        const len = node.nodeValue.length;
+        if (startNode === null && offset + len >= start) { startNode = node; startOffset = start - offset; }
+        if (endNode === null && offset + len >= end) { endNode = node; endOffset = end - offset; }
+        if (startNode !== null && endNode !== null) break;
+        offset += len;
+      }
+      if (!startNode || !endNode) return null;
+      const range = document.createRange();
+      range.setStart(startNode, startOffset);
+      range.setEnd(endNode, endOffset);
+      return range;
+    }
+
+    function applyTheme(choice) {
+      let effective = choice;
+      if (choice === 'system') effective = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', effective);
+      document.querySelectorAll('.theme-opt').forEach(btn => btn.classList.toggle('active', btn.dataset.themeChoice === choice));
+    }
+    function setTheme(choice) { localStorage.setItem(THEME_KEY, choice); applyTheme(choice); }
+    applyTheme(localStorage.getItem(THEME_KEY) || 'system');
+    document.querySelectorAll('.theme-opt').forEach(btn => btn.addEventListener('click', () => setTheme(btn.dataset.themeChoice)));
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if ((localStorage.getItem(THEME_KEY) || 'system') === 'system') applyTheme('system');
+    });
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 2600);
+    }
+
+    function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+    function cssEscape(s) { return String(s).replace(/(["\\])/g, '\\$1'); }
+    function hasContent() { return editor.textContent.trim().length > 0; }
+
+    function updateToolbarVisibility() {
+      const filled = hasContent();
+      document.getElementById('copyBtn').style.display = filled ? 'inline-flex' : 'none';
+      document.getElementById('saveBtn').style.display = filled ? 'inline-flex' : 'none';
+      document.getElementById('makePlaceholderBtn').style.display = filled ? 'inline-flex' : 'none';
+      hintBar.style.display = filled ? 'block' : 'none';
+    }
+
+    function slug(str) {
+      return str.toLowerCase().trim().replace(/[^a-z0-9åäöéèü\s_-]/gi, '').replace(/\s+/g, '_').slice(0, 40);
+    }
+
+    function collectPlaceholders() { return [...editor.querySelectorAll('mark.ph')]; }
+
+    function paintMark(mark, idx) {
+      const c = colorForIndex(idx);
+      mark.style.setProperty('--ph-color', c.color);
+      mark.style.setProperty('--ph-color-soft', c.soft);
+    }
+
+    function makeMarkNode(key, value) {
+      const mark = document.createElement('mark');
+      mark.className = 'ph';
+      mark.dataset.key = key;
+      mark.dataset.value = value || '';
+      mark.contentEditable = 'false';
+      mark.textContent = value ? value : ('{{' + key + '}}');
+      return mark;
+    }
+
+    function syncMarksForKey(key, value) {
+      editor.querySelectorAll('mark.ph[data-key="' + cssEscape(key) + '"]').forEach(m => {
+        m.dataset.value = value;
+        m.textContent = value ? value : ('{{' + key + '}}');
+      });
+    }
+
+    function repaintAllMarks() {
+      orderedKeys.forEach((key, idx) => {
+        editor.querySelectorAll('mark.ph[data-key="' + cssEscape(key) + '"]').forEach(m => paintMark(m, idx));
+      });
+    }
+
+    function autoConvertTypedPlaceholders() {
+      if (suppressAutoConvert) return;
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+      const targets = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        if (/{{\s*[^{}]+?\s*}}/.test(node.nodeValue)) targets.push(node);
+      }
+      if (!targets.length) return;
+      targets.forEach(textNode => {
+        const parts = textNode.nodeValue.split(/({{\s*[^{}]+?\s*}})/g);
+        if (parts.length <= 1) return;
+        const frag = document.createDocumentFragment();
+        parts.forEach(part => {
+          const m = part.match(/^{{\s*([^{}]+?)\s*}}$/);
+          if (m) {
+            const key = slug(m[1]) || m[1].trim();
+            frag.appendChild(makeMarkNode(key, ''));
+          } else if (part) {
+            frag.appendChild(document.createTextNode(part));
+          }
+        });
+        textNode.replaceWith(frag);
+      });
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      renderFieldRail();
+    }
+
+    function forceRenderFieldRail() {
+      orderedKeys = [];
+      fieldRail.innerHTML = '';
+      renderFieldRail();
+    }
+
+    function renderFieldRail() {
+      const marks = collectPlaceholders();
+      const seen = new Map();
+      marks.forEach(m => { if (!seen.has(m.dataset.key)) seen.set(m.dataset.key, m.dataset.value || ''); });
+      const newOrderedKeys = [...seen.keys()];
+      const keysChanged = newOrderedKeys.length !== orderedKeys.length || newOrderedKeys.some((k, i) => k !== orderedKeys[i]);
+
+      if (!keysChanged) {
+        seen.forEach((value, key) => {
+          const inp = fieldRail.querySelector('input[data-fill="' + cssEscape(key) + '"]');
+          if (inp && document.activeElement !== inp && inp.value !== value) inp.value = value;
+        });
+        updateToolbarVisibility();
+        return;
+      }
+
+      orderedKeys = newOrderedKeys;
+      fieldRail.innerHTML = '';
+      orderedKeys.forEach((key, idx) => {
+        const value = seen.get(key) || '';
+        const c = colorForIndex(idx);
+        const chip = document.createElement('div');
+        chip.className = 'field-chip';
+        chip.style.setProperty('--chip-color', c.color);
+        chip.style.setProperty('--chip-color-soft', c.soft);
+        const shortcutHint = idx < 9 ? '<span class="kbd-hint">' + modLabel + (idx + 1) + '</span>' : '';
+        chip.innerHTML =
+          '<label>' + escapeHtml(key) + shortcutHint +
+          '<button type="button" class="rm-btn" title="Ta bort fält" data-remove="' + escapeAttr(key) + '">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>' +
+          '</button></label>' +
+          '<input data-fill="' + escapeAttr(key) + '" data-idx="' + idx + '" placeholder="Fyll i ' + escapeHtml(key) + '" value="' + escapeAttr(value) + '" />';
+        fieldRail.appendChild(chip);
+      });
+
+      repaintAllMarks();
+
+      fieldRail.querySelectorAll('input[data-fill]').forEach(inp => {
+        inp.addEventListener('input', () => { syncMarksForKey(inp.dataset.fill, inp.value); scheduleAutosave(); });
+        inp.addEventListener('paste', (e) => handleSmartPaste(e, inp));
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); editor.focus(); toast('Tillbaka i mailrutan'); } });
+      });
+      fieldRail.querySelectorAll('button[data-remove]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.dataset.remove;
+          editor.querySelectorAll('mark.ph[data-key="' + cssEscape(key) + '"]').forEach(m => m.replaceWith(document.createTextNode('{{' + key + '}}')));
+          pushHistory();
+          renderFieldRail();
+        });
+      });
+      updateToolbarVisibility();
+    }
+
+    function handleSmartPaste(e, startInput) {
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      if (!text) return;
+      const cells = text.split(/\r\n|\r|\n|\t/).map(s => s.trim()).filter(s => s.length > 0);
+      if (cells.length <= 1) return;
+      e.preventDefault();
+      const startIdx = parseInt(startInput.dataset.idx, 10);
+      const inputs = [...fieldRail.querySelectorAll('input[data-fill]')].sort((a, b) => +a.dataset.idx - +b.dataset.idx);
+      cells.forEach((val, i) => {
+        const target = inputs[startIdx + i];
+        if (!target) return;
+        target.value = val;
+        syncMarksForKey(target.dataset.fill, val);
+      });
+      pushHistory();
+      scheduleAutosave();
+      toast(cells.length + ' värden fördelade över fälten');
+    }
+
+    function triggerMakePlaceholder() {
+      captureSelectionAsOffsets();
+      if (!savedSelection || !savedSelection.text.trim()) {
+        toast('Markera text i mailet — dra över orden du vill göra utbytbara');
+        return;
+      }
+      pendingOffsets = { start: savedSelection.start, end: savedSelection.end };
+      fieldNameInput.value = slug(savedSelection.text);
+      fieldNameDialog.showModal();
+      setTimeout(() => { fieldNameInput.focus(); fieldNameInput.select(); }, 30);
+    }
+
+    function triggerSaveAsTemplate() {
+      if (!hasContent()) { toast('Skriv eller klistra in ett mail först'); return; }
+      const existing = templates.find(t => t.id === currentId);
+      document.getElementById('templateNameInput').value = existing ? existing.name : '';
+      nameDialog.showModal();
+      setTimeout(() => document.getElementById('templateNameInput').select(), 30);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (document.activeElement !== editor) { e.preventDefault(); editor.focus(); }
+        return;
+      }
+      if (e.code === 'Space' && e.ctrlKey && !e.metaKey) {
+        const sel = window.getSelection();
+        const activeInEditor = sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode);
+        if (activeInEditor || savedSelection) { e.preventDefault(); triggerMakePlaceholder(); }
+        return;
+      }
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      if (mod && e.shiftKey && (e.key === 'S' || e.key === 's')) { e.preventDefault(); triggerSaveAsTemplate(); return; }
+      if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+      if (mod && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); return; }
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('copyBtn').click(); return; }
+      const num = parseInt(e.key, 10);
+      if (!Number.isInteger(num) || num < 1 || num > 9) return;
+      const target = fieldRail.querySelector('input[data-idx="' + (num - 1) + '"]');
+      if (target) { e.preventDefault(); target.focus(); target.select(); }
+    });
+
+    const editorObserver = new MutationObserver(() => { renderFieldRail(); scheduleHistoryPush(); scheduleAutosave(); });
+    editorObserver.observe(editor, { childList: true, subtree: true, characterData: true });
+
+    const fieldNameDialog = document.getElementById('fieldNameDialog');
+    const fieldNameInput = document.getElementById('fieldNameInput');
+    const makePlaceholderBtn = document.getElementById('makePlaceholderBtn');
+    let pendingOffsets = null;
+
+    makePlaceholderBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    makePlaceholderBtn.addEventListener('click', triggerMakePlaceholder);
+
+    document.getElementById('cancelFieldBtn').addEventListener('click', () => { fieldNameDialog.close(); pendingOffsets = null; });
+    document.getElementById('confirmFieldBtn').addEventListener('click', () => {
+      const name = slug(fieldNameInput.value);
+      if (!name) { toast('Skriv ett giltigt fältnamn'); return; }
+      if (!pendingOffsets) { fieldNameDialog.close(); return; }
+      const range = rangeFromTextOffsets(editor, pendingOffsets.start, pendingOffsets.end);
+      if (!range) { toast('Kunde inte hitta markeringen längre — markera igen'); fieldNameDialog.close(); pendingOffsets = null; return; }
+      const selectedText = range.toString();
+      const mark = makeMarkNode(name, selectedText);
+      try { range.deleteContents(); range.insertNode(mark); } catch (e) { editor.appendChild(mark); }
+      pendingOffsets = null;
+      savedSelection = null;
+      fieldNameDialog.close();
+      pushHistory();
+      renderFieldRail();
+      editor.focus();
+    });
+    fieldNameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmFieldBtn').click(); }
+      if (e.key === 'Escape') { e.stopPropagation(); }
+    });
+
+    function serializeTemplate() {
+      const tmp = editor.cloneNode(true);
+      tmp.querySelectorAll('mark.ph').forEach(m => m.replaceWith(document.createTextNode('{{' + m.dataset.key + '}}')));
+      return tmp.innerText || tmp.textContent || '';
+    }
+    function resolvedText() {
+      const tmp = editor.cloneNode(true);
+      tmp.querySelectorAll('mark.ph').forEach(m => m.replaceWith(document.createTextNode(m.dataset.value || ('{{' + m.dataset.key + '}}'))));
+      return tmp.innerText || tmp.textContent || '';
+    }
+
+    function loadIntoEditor(bodyTemplate, defaults) {
+      commitCurrentToRecent();
+      currentRecentId = null;
+      defaults = defaults || {};
+      suppressAutoConvert = true;
+      editor.innerHTML = '';
+      orderedKeys = [];
+      fieldRail.innerHTML = '';
+      const escaped = escapeHtml(bodyTemplate);
+      const html = escaped.replace(/{{\s*([^{}]+?)\s*}}/g, (_, rawKey) => {
+        const key = rawKey.trim();
+        const val = defaults[key] || '';
+        return '<mark class="ph" data-key="' + escapeAttr(key) + '" data-value="' + escapeAttr(val) + '" contenteditable="false">' + (val ? escapeHtml(val) : '{{' + escapeHtml(key) + '}}') + '</mark>';
+      });
+      editor.innerHTML = html;
+      suppressAutoConvert = false;
+      undoStack = [editor.innerHTML];
+      redoStack = [];
+      forceRenderFieldRail();
+    }
+
+    function loadRecentIntoEditor(slot) {
+      commitCurrentToRecent();
+      suppressAutoConvert = true;
+      currentId = null;
+      currentRecentId = slot.id;
+      editor.innerHTML = '';
+      orderedKeys = [];
+      fieldRail.innerHTML = '';
+      editor.innerHTML = slot.html;
+      suppressAutoConvert = false;
+      undoStack = [editor.innerHTML];
+      redoStack = [];
+      forceRenderFieldRail();
+    }
+
+    async function pasteFromClipboard() {
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        toast('Klistra in manuellt i rutan med Ctrl/Cmd+V');
+        editor.focus();
+        return;
+      }
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text) { toast('Urklipp är tomt'); return; }
+        editor.focus();
+        insertPlainText(text);
+        autoConvertTypedPlaceholders();
+        pushHistory();
+      } catch (err) {
+        toast('Webbläsaren blockerade automatisk inklistring — klicka i rutan och tryck Ctrl/Cmd+V');
+        editor.focus();
+      }
+    }
+
+    function insertPlainText(text) {
+      const sel = window.getSelection();
+      let range;
+      if (sel && sel.rangeCount > 0 && editor.contains(sel.anchorNode)) range = sel.getRangeAt(0);
+      else { range = document.createRange(); range.selectNodeContents(editor); range.collapse(false); }
+      range.deleteContents();
+      const node = document.createTextNode(text);
+      range.insertNode(node);
+      range.setStartAfter(node);
+      range.setEndAfter(node);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    document.getElementById('pasteBtn').addEventListener('click', pasteFromClipboard);
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+      const text = resolvedText();
+      try { await navigator.clipboard.writeText(text); toast('Mailet kopierat — klistra in i Outlook'); }
+      catch { toast('Kunde inte kopiera automatiskt — markera texten manuellt'); }
+    });
+
+    editor.addEventListener('input', () => { updateToolbarVisibility(); });
+    editor.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      insertPlainText(text);
+      autoConvertTypedPlaceholders();
+      pushHistory();
+    });
+
+    const nameDialog = document.getElementById('nameDialog');
+    document.getElementById('saveBtn').addEventListener('click', triggerSaveAsTemplate);
+    document.getElementById('cancelSaveBtn').addEventListener('click', () => nameDialog.close());
+    document.getElementById('confirmSaveBtn').addEventListener('click', () => {
+      const name = document.getElementById('templateNameInput').value.trim();
+      if (!name) { toast('Ge mallen ett namn'); return; }
+      const defaults = {};
+      collectPlaceholders().forEach(m => { defaults[m.dataset.key] = m.dataset.value || ''; });
+      const body = serializeTemplate();
+      const record = { id: currentId || crypto.randomUUID(), name, body, defaults, updatedAt: new Date().toISOString() };
+      const idx = templates.findIndex(t => t.id === record.id);
+      if (idx >= 0) templates[idx] = record; else templates.push(record);
+      currentId = record.id;
+      localStorage.setItem(KEY, JSON.stringify(templates));
+      renderLibrary();
+      nameDialog.close();
+      toast('Mall sparad permanent');
+      editor.focus();
+    });
+    document.getElementById('templateNameInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmSaveBtn').click(); }
+      if (e.key === 'Escape') { e.stopPropagation(); }
+    });
+
+    const sidePanel = document.getElementById('sidePanel');
+    const backdrop = document.getElementById('backdrop');
+    function openPanel() { renderLibrary(); renderRecents(); sidePanel.classList.add('open'); backdrop.classList.add('open'); }
+    function closePanel() { sidePanel.classList.remove('open'); backdrop.classList.remove('open'); }
+    document.getElementById('menuBtn').addEventListener('click', openPanel);
+    document.getElementById('closePanelBtn').addEventListener('click', closePanel);
+    backdrop.addEventListener('click', closePanel);
+
+    function timeAgo(ts) {
+      const mins = Math.round((Date.now() - ts) / 60000);
+      if (mins < 1) return 'just nu';
+      if (mins < 60) return mins + ' min sedan';
+      const hrs = Math.round(mins / 60);
+      if (hrs < 24) return hrs + ' tim sedan';
+      return Math.round(hrs / 24) + ' dygn sedan';
+    }
+
+    function renderRecents() {
+      const list = document.getElementById('draftList');
+      const recents = loadRecents().sort((a, b) => b.updatedAt - a.updatedAt);
+      document.getElementById('recentsCount').textContent = recents.length + '/' + MAX_RECENTS;
+      list.innerHTML = '';
+      if (!recents.length) { list.innerHTML = '<div class="lib-empty">Inga temporära mail ännu.</div>'; return; }
+      recents.forEach((r) => {
+        const row = document.createElement('div');
+        row.className = 'lib-row';
+        row.innerHTML = '<div class="lib-text"><strong>' + escapeHtml(r.preview || '(tomt)') + '</strong><small>' + timeAgo(r.updatedAt) + '</small></div>';
+        row.addEventListener('click', () => { loadRecentIntoEditor(r); closePanel(); toast('Temporärt mail öppnat'); });
+        list.appendChild(row);
+      });
+    }
+
+    function renderLibrary() {
+      const list = document.getElementById('libraryList');
+      list.innerHTML = '';
+      if (!templates.length) { list.innerHTML = '<div class="lib-empty">Inga sparade mallar ännu.</div>'; return; }
+      templates.slice().sort((a,b) => (b.updatedAt||'').localeCompare(a.updatedAt||'')).forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'lib-row';
+        row.innerHTML = '<div class="lib-text"><strong>' + escapeHtml(t.name) + '</strong><small>' + escapeHtml((t.body||'').replace(/\n/g,' ').slice(0,50)) + '</small></div>';
+        row.addEventListener('click', () => { currentId = t.id; loadIntoEditor(t.body, t.defaults || {}); closePanel(); });
+        list.appendChild(row);
+      });
+    }
+
+    document.getElementById('newTemplateBtn').addEventListener('click', () => {
+      commitCurrentToRecent();
+      currentId = null;
+      currentRecentId = null;
+      suppressAutoConvert = true;
+      editor.innerHTML = '';
+      suppressAutoConvert = false;
+      orderedKeys = [];
+      fieldRail.innerHTML = '';
+      undoStack = [''];
+      redoStack = [];
+      forceRenderFieldRail();
+      updateToolbarVisibility();
+      closePanel();
+      editor.focus();
+    });
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(templates, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mailmallar-backup-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('importInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const incoming = JSON.parse(await file.text());
+        if (!Array.isArray(incoming)) throw new Error();
+        const map = new Map(templates.map(t => [t.id, t]));
+        incoming.forEach(t => { if (t && t.id && typeof t.body === 'string') map.set(t.id, t); });
+        templates = [...map.values()];
+        localStorage.setItem(KEY, JSON.stringify(templates));
+        renderLibrary();
+        toast('Backup importerad');
+      } catch { toast('Ogiltig backupfil'); }
+      e.target.value = '';
+    });
+
+    (function restoreOnLoad() {
+      const recents = loadRecents().sort((a, b) => b.updatedAt - a.updatedAt);
+      if (recents.length) {
+        suppressAutoConvert = true;
+        editor.innerHTML = recents[0].html;
+        currentRecentId = recents[0].id;
+        suppressAutoConvert = false;
+        toast('Ditt senaste temporära mail har återställts');
+      }
+      undoStack = [editor.innerHTML];
+      forceRenderFieldRail();
+    })();
+
+    updateToolbarVisibility();
+  </script>
+</body>
+</html>

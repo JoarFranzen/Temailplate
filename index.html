@@ -740,15 +740,30 @@
       if (e.key === 'Escape') { e.stopPropagation(); }
     });
 
+
+    // innerText only reflects real line breaks when the element is actually laid out on
+    // the page, so a detached clone needs to be mounted (off-screen) before reading it.
+    function domToText(node) {
+      node.removeAttribute('id');
+      node.style.position = 'fixed';
+      node.style.top = '-9999px';
+      node.style.left = '-9999px';
+      node.style.whiteSpace = 'pre-wrap';
+      document.body.appendChild(node);
+      const text = node.innerText || node.textContent || '';
+      node.remove();
+      return text;
+    }
+
     function serializeTemplate() {
       const tmp = editor.cloneNode(true);
       tmp.querySelectorAll('mark.ph').forEach(m => m.replaceWith(document.createTextNode('{{' + m.dataset.key + '}}')));
-      return tmp.innerText || tmp.textContent || '';
+      return domToText(tmp);
     }
     function resolvedText() {
       const tmp = editor.cloneNode(true);
       tmp.querySelectorAll('mark.ph').forEach(m => m.replaceWith(document.createTextNode(m.dataset.value || ('{{' + m.dataset.key + '}}'))));
-      return tmp.innerText || tmp.textContent || '';
+      return domToText(tmp);
     }
 
     function loadIntoEditor(bodyTemplate, defaults) {

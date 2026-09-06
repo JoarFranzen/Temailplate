@@ -104,12 +104,41 @@
   .modal input { width:100%; border:1px solid var(--line); border-radius:9px; padding:10px 11px; margin-bottom:6px; background:var(--bg); color:var(--ink); }
   .modal-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:16px; }
   @media (max-width:640px) { .field-chip{min-width:140px} .toolbar{flex-wrap:wrap} .btn{flex:1 1 auto} }
+
+  .auth-chip { position:fixed; top:18px; right:18px; z-index:45; display:flex; align-items:center; gap:8px; }
+  .btn-google { background:var(--surface); color:var(--ink); border:1.5px solid var(--line); box-shadow:0 4px 10px rgba(31,48,91,.08); padding:9px 14px; border-radius:9px; display:flex; align-items:center; gap:8px; font-size:13.5px; font-weight:700; }
+  .btn-google:hover { background:var(--bg); border-color:#adbbd8; }
+  .user-chip { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:6px 8px 6px 6px; box-shadow:0 4px 10px rgba(31,48,91,.08); }
+  .user-chip img { width:26px; height:26px; border-radius:50%; display:block; background:var(--bg); }
+  .user-chip span { font-size:13px; font-weight:650; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .user-chip button { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .user-chip button:hover { background:var(--bg); color:var(--ink); }
+  @media (max-width:640px) { .btn-google span.label { display:none; } .user-chip span { max-width:80px; } }
 </style>
 </head>
 <body>
   <button class="menu-btn" id="menuBtn" aria-label="Meny">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
+
+  <div class="auth-chip" id="authChip">
+    <button class="btn-google" id="loginBtn">
+      <svg width="16" height="16" viewBox="0 0 18 18">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 013.68 9c0-.593.102-1.17.284-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+      </svg>
+      <span class="label">Logga in med Google</span>
+    </button>
+    <div class="user-chip" id="userChip" style="display:none">
+      <img id="userAvatar" alt="" />
+      <span id="userName"></span>
+      <button id="logoutBtn" title="Logga ut" aria-label="Logga ut">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M15 17l5-5-5-5M20 12H9M12 19H6a2 2 0 01-2-2V7a2 2 0 012-2h6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
 
   <div class="stage">
     <div class="field-rail" id="fieldRail"></div>
@@ -221,7 +250,83 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    // --- Supabase Auth (Google) ---
+    const SUPABASE_URL = 'https://ixwuwomzeiltbvfofnri.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4d3V3b216ZWlsdGJ2Zm9mbnJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2OTU5OTksImV4cCI6MjEwNDI3MTk5OX0.LJPHQ3p7TdXScC10Y4-tSZict1UH-Eimo_7eRiU5GmQ';
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentUser = null;
+
+    function renderAuthUI(session) {
+      const loginBtn = document.getElementById('loginBtn');
+      const userChip = document.getElementById('userChip');
+      const user = session && session.user;
+      const justLoggedIn = !!user && !currentUser;
+      currentUser = user || null;
+      if (user) {
+        const meta = user.user_metadata || {};
+        document.getElementById('userAvatar').src = meta.avatar_url || meta.picture || '';
+        document.getElementById('userName').textContent = meta.full_name || meta.name || user.email || 'Inloggad';
+        loginBtn.style.display = 'none';
+        userChip.style.display = 'flex';
+      } else {
+        loginBtn.style.display = 'flex';
+        userChip.style.display = 'none';
+      }
+      if (justLoggedIn) fetchCloudTemplates();
+    }
+
+    // Pulls this user's templates down from Supabase and makes them the local list
+    // (also mirrored into localStorage so the app still works offline afterwards).
+    async function fetchCloudTemplates() {
+      if (!currentUser) return;
+      const { data, error } = await sb.from('templates').select('*').order('updated_at', { ascending: false });
+      if (error) { toast('Kunde inte hämta mallar från molnet: ' + error.message); return; }
+      templates = data.map(row => ({
+        id: row.id,
+        name: row.title,
+        body: row.body,
+        defaults: row.defaults || {},
+        updatedAt: row.updated_at
+      }));
+      localStorage.setItem(KEY, JSON.stringify(templates));
+      renderLibrary();
+    }
+
+    // Pushes one saved template up to Supabase (insert or update, RLS scopes it to this user).
+    async function upsertCloudTemplate(record) {
+      if (!currentUser) return;
+      const { error } = await sb.from('templates').upsert({
+        id: record.id,
+        user_id: currentUser.id,
+        title: record.name,
+        subject: '',
+        body: record.body,
+        defaults: record.defaults,
+        updated_at: record.updatedAt
+      });
+      if (error) { toast('Sparad lokalt, men molnsync misslyckades: ' + error.message); return; }
+      toast('Mall sparad i molnet');
+    }
+
+    sb.auth.onAuthStateChange((_event, session) => renderAuthUI(session));
+    sb.auth.getSession().then(({ data }) => renderAuthUI(data.session));
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+      if (error) toast('Kunde inte logga in: ' + error.message);
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      toast('Utloggad');
+    });
+
     const KEY = 'email-template-studio-v13';
     const THEME_KEY = 'email-template-studio-theme';
     const RECENTS_KEY = 'email-template-studio-recents';
@@ -734,7 +839,7 @@
     const nameDialog = document.getElementById('nameDialog');
     document.getElementById('saveBtn').addEventListener('click', triggerSaveAsTemplate);
     document.getElementById('cancelSaveBtn').addEventListener('click', () => nameDialog.close());
-    document.getElementById('confirmSaveBtn').addEventListener('click', () => {
+    document.getElementById('confirmSaveBtn').addEventListener('click', async () => {
       const name = document.getElementById('templateNameInput').value.trim();
       if (!name) { toast('Ge mallen ett namn'); return; }
       const defaults = {};
@@ -747,8 +852,13 @@
       localStorage.setItem(KEY, JSON.stringify(templates));
       renderLibrary();
       nameDialog.close();
-      toast('Mall sparad permanent');
       editor.focus();
+      if (currentUser) {
+        toast('Sparar i molnet …');
+        await upsertCloudTemplate(record);
+      } else {
+        toast('Mall sparad lokalt — logga in för att spara i molnet');
+      }
     });
     document.getElementById('templateNameInput').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); document.getElementById('confirmSaveBtn').click(); }
@@ -757,7 +867,13 @@
 
     const sidePanel = document.getElementById('sidePanel');
     const backdrop = document.getElementById('backdrop');
-    function openPanel() { renderLibrary(); renderRecents(); sidePanel.classList.add('open'); backdrop.classList.add('open'); }
+    function openPanel() {
+      renderLibrary();
+      renderRecents();
+      sidePanel.classList.add('open');
+      backdrop.classList.add('open');
+      if (currentUser) fetchCloudTemplates();
+    }
     function closePanel() { sidePanel.classList.remove('open'); backdrop.classList.remove('open'); }
     document.getElementById('menuBtn').addEventListener('click', openPanel);
     document.getElementById('closePanelBtn').addEventListener('click', closePanel);
